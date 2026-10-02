@@ -3,254 +3,199 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>All Project Notes</title>
+<title>React Compiler</title>
+<meta name="description" content="An editor that types out its own React source, one word every 5 seconds.">
 <style>
   :root {
-    --bg: #f4f1ea; --paper: #fffdf8; --ink: #2b2a27; --muted: #8a857a;
-    --line: #e4ddcf; --accent: #3d7a5c; --accent-ink: #fff; --bar: #e9e3d6; --stop: #c0533f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #15171a; --paper: #1d2024; --ink: #e6e3dc; --muted: #8c8f94;
-            --line: #2c3036; --accent: #6fbf95; --accent-ink: #10231a; --bar: #2a2e34; --stop: #e07a66; }
+    --bg: #1e1e1e; --side: #252526; --activity: #2c2c2c; --title: #1f1f1f; --line: #2b2b2b;
+    --tab: #2d2d2d; --ink: #d4d4d4; --muted: #858585; --dim: #5a5a5a; --hl: #2a2d2e;
+    --accent: #0078d4; --react: #61dafb; --js: #f1e05a; --ok: #89d185; --warn: #cca700; --stop: #f14c4c;
+    --c: #6a9955; --s: #ce9178; --n: #b5cea8; --k: #c586c0; --f: #dcdcaa; --t: #569cd6; --x: #4ec9b0;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 40px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
-  .right { display: flex; align-items: center; gap: 14px; }
-  .stats { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
-  .stats b { color: var(--ink); }
-  #go { font: 600 15px/1 system-ui, sans-serif; border: 0; border-radius: 8px; padding: 10px 22px;
-        background: var(--accent); color: var(--accent-ink); cursor: pointer; min-width: 96px; }
-  #go.on { background: var(--stop); color: #fff; }
-  .bar { height: 6px; background: var(--bar); border-radius: 3px; margin: 14px 0 18px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
-  textarea { width: 100%; height: calc(100vh - 220px); min-height: 320px; resize: vertical;
-             background: var(--paper); color: var(--ink); border: 1px solid var(--line);
-             border-radius: 10px; padding: 22px 24px; outline: none;
-             font: 17px/1.75 Georgia, "Times New Roman", serif; }
-  textarea:focus { border-color: var(--accent); }
-  footer { display: flex; justify-content: space-between; align-items: center; gap: 12px;
-           margin-top: 12px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
-  footer a { color: var(--muted); }
-  button.small { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
-                 border-radius: 6px; padding: 5px 12px; cursor: pointer; }
-  button.small:hover { border-color: var(--muted); }
-  button.armed { border-color: var(--stop); color: var(--stop); }
-  .done { color: var(--accent); font-weight: 600; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+         display: flex; flex-direction: column; overflow: hidden; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+  /* title bar */
+  .titlebar { height: 36px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 10px;
+              background: var(--title); border-bottom: 1px solid var(--line); position: relative; }
+  .lights { display: flex; gap: 7px; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+  .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+  .menu { display: flex; gap: 2px; color: #cccccc; }
+  .menu span { padding: 3px 7px; border-radius: 4px; } .menu span:hover { background: #ffffff14; }
+  .title { position: absolute; left: 50%; transform: translateX(-50%); color: var(--muted); white-space: nowrap;
+           background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 6px; padding: 3px 60px; font-size: 12px; }
+  .actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .ghost { padding: 4px 10px; border: 1px solid #3a3a3a; border-radius: 5px; color: #cccccc; }
+  .ghost:hover { border-color: #6a6a6a; } .ghost.armed { border-color: var(--stop); color: var(--stop); }
+  #run { display: flex; align-items: center; gap: 8px; padding: 5px 16px; border-radius: 5px; font-weight: 600;
+         background: #16825d; color: #fff; }
+  #run:hover { filter: brightness(1.15); }
+  #run.on { background: var(--stop); animation: pulse 1.6s ease-in-out infinite; }
+  #run .tri { width: 0; height: 0; border-left: 8px solid #fff; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+  #run .sq { width: 9px; height: 9px; background: #fff; border-radius: 1px; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px #f14c4c33, 0 0 18px #f14c4c66; } }
+
+  /* body */
+  .body { flex: 1; display: flex; min-height: 0; }
+  .activity { width: 48px; flex: none; background: var(--activity); display: flex; flex-direction: column;
+              align-items: center; padding-top: 6px; gap: 4px; border-right: 1px solid var(--line); }
+  .activity svg { width: 24px; height: 24px; margin: 10px 0; stroke: var(--muted); fill: none; stroke-width: 1.6; }
+  .activity .on { position: relative; } .activity .on svg { stroke: #fff; }
+  .activity .on::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 2px; background: #fff; }
+  .badge { position: absolute; right: -4px; bottom: 6px; background: var(--accent); color: #fff; font-size: 9px;
+           border-radius: 8px; padding: 0 4px; font-weight: 700; }
+
+  .explorer { width: 240px; flex: none; background: var(--side); border-right: 1px solid var(--line); overflow: auto; }
+  .explorer-head { padding: 10px 20px; font-size: 11px; letter-spacing: .08em; color: #bbbbbb; }
+  #tree .folder { padding: 2px 6px; color: #cccccc; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  #tree .folder.root { font-weight: 700; font-size: 11px; letter-spacing: .04em; }
+  .chev { width: 0; height: 0; border-top: 4px solid #c5c5c5; border-left: 4px solid transparent; border-right: 4px solid transparent; margin-right: 4px; }
+  #tree .file { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; padding: 2px 8px; height: 22px; white-space: nowrap; }
+  #tree .file:hover:not(:disabled) { background: var(--hl); }
+  #tree .file.todo { color: var(--dim); cursor: default; }
+  #tree .file.open { background: #37373d; }
+  #tree .file.live { color: #e2c08d; }
+  #tree .file .dot { display: none; } #tree .file.live .dot { display: block; margin-left: auto; }
+  .icon { font: 700 9px/1 var(--mono); width: 14px; text-align: center; }
+  .icon.jsx { color: var(--react); font-size: 13px; } .icon.js { color: var(--js); }
+  .todo .icon { opacity: .4; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #e2c08d; flex: none; }
+  body.running .dot { animation: blink 1s steps(2) infinite; }
+
+  /* workspace */
+  .workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #tabs { height: 35px; flex: none; display: flex; background: var(--side); overflow-x: auto; scrollbar-width: none; }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab { display: flex; align-items: center; gap: 6px; padding: 0 10px 0 12px; background: var(--tab); color: #969696;
+         border-right: 1px solid var(--side); white-space: nowrap; flex: none; border-top: 1px solid transparent; }
+  .tab.active { background: var(--bg); color: #fff; border-top-color: var(--accent); }
+  .tab .close { width: 16px; text-align: center; opacity: 0; } .tab:hover .close, .tab.active .close { opacity: .7; }
+  #crumbs { height: 22px; flex: none; padding: 0 16px; display: flex; align-items: center; gap: 6px; color: #a9a9a9; font-size: 12px; }
+  #crumbs i { font-style: normal; color: var(--dim); }
+
+  .editor-row { flex: 1; min-height: 0; display: flex; }
+  #pane { flex: 1; min-width: 0; overflow: auto; position: relative; font: 14px/20px var(--mono); }
+  .lines { display: flex; min-height: 100%; }
+  #gutter { flex: none; width: 56px; padding: 10px 18px 0 0; text-align: right; color: #6e7681; user-select: none; }
+  #gutter .active { color: #cccccc; }
+  .code-wrap { position: relative; flex: 1; }
+  #line-hl { position: absolute; left: 0; right: 0; height: 20px; border: 1px solid #282828; background: #ffffff06; pointer-events: none; }
+  #code { margin: 0; padding: 10px 0 45vh 4px; font: inherit; white-space: pre; tab-size: 2; position: relative; }
+  .caret { display: inline-block; width: 2px; height: 18px; margin-bottom: -4px; background: #aeafad; box-shadow: 0 0 8px #61dafb;
+           animation: blink 1.06s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .c { color: var(--c); font-style: italic; } .s { color: var(--s); } .n { color: var(--n); } .k { color: var(--k); }
+  .f { color: var(--f); } .t { color: var(--t); } .x { color: var(--x); }
+
+  #suggest { position: absolute; z-index: 5; margin: 0; padding: 3px 0; list-style: none; width: 250px;
+             background: #252526; border: 1px solid #454545; box-shadow: 0 6px 18px #0008; font: 13px/22px var(--mono); }
+  #suggest li { padding: 0 8px; display: flex; gap: 8px; white-space: nowrap; overflow: hidden; }
+  #suggest li.picked { background: #04395e; outline: 1px solid #0078d4; }
+  #suggest b { color: #18a3ff; font-weight: 600; }
+  #suggest .kind { width: 26px; font-size: 10px; color: #b180d7; } #suggest .k1 { color: #dcdcaa; } #suggest .k2 { color: #75beff; } #suggest .k3 { color: #4ec9b0; }
+
+  #mini { width: 110px; flex: none; position: relative; overflow: hidden; border-left: 1px solid #ffffff08; }
+  #mini-code { margin: 0; width: 550px; padding: 10px 0 0 10px; font: 14px/20px var(--mono); white-space: pre;
+               transform-origin: 0 0; opacity: .85; pointer-events: none; }
+  #mini-view { position: absolute; left: 0; right: 0; background: #79797933; pointer-events: none; }
+
+  /* terminal */
+  .terminal { height: 190px; flex: none; border-top: 1px solid #3c3c3c; display: flex; flex-direction: column; background: var(--bg); }
+  .terminal-tabs { display: flex; gap: 22px; padding: 0 20px; height: 32px; align-items: center; font-size: 11px;
+                   letter-spacing: .06em; color: var(--muted); }
+  .terminal-tabs .on { color: #e7e7e7; border-bottom: 1px solid #e7e7e7; padding-bottom: 4px; margin-top: 5px; }
+  .terminal-tabs .count { background: #4d4d4d; border-radius: 9px; padding: 0 6px; margin-left: 4px; color: #fff; }
+  #term { flex: 1; overflow: auto; margin: 0; padding: 0 20px 8px; font: 12.5px/18px var(--mono); white-space: pre-wrap; color: #cccccc; }
+  #term .cmd { color: #fff; } #term .ok { color: var(--ok); } #term .dim { color: var(--muted); }
+  #term .warn { color: var(--warn); } #term .link { color: #3794ff; }
+
+  /* status bar */
+  .statusbar { height: 24px; flex: none; display: flex; align-items: center; background: #007acc; color: #fff; font-size: 12px; position: relative; overflow: hidden; }
+  body.running .statusbar { background: linear-gradient(90deg, #7c3aed, #0078d4, #0ea5a4, #7c3aed); background-size: 300% 100%; animation: flow 6s linear infinite; }
+  @keyframes flow { to { background-position: 300% 0; } }
+  .statusbar span { padding: 0 9px; white-space: nowrap; }
+  .statusbar .remote { background: #16825d; height: 100%; display: flex; align-items: center; padding: 0 12px; }
+  .statusbar .grow { flex: 1; }
+  #progress { position: absolute; left: 0; bottom: 0; height: 2px; background: #fff; opacity: .8; transition: width .4s; }
+  body.running #status-state::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+           background: #fff; margin-right: 6px; animation: blink 1s steps(2) infinite; }
+
+  @media (max-width: 1000px) { .menu, .title { display: none; } }
+  @media (max-width: 760px) {
+    .activity, .explorer, #mini, .hide-sm { display: none; }
+    .terminal { height: 140px; }
+    #gutter { width: 40px; padding-right: 10px; }
+    #pane { font-size: 12.5px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>All Project Notes</h1>
-    <div class="right">
-      <div class="stats"><b id="count">0</b> / 2000 words &middot; <span id="eta"></span></div>
-      <button id="go">Start</button>
+  <header class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <nav class="menu"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></nav>
+    <div class="title">react-compiler</div>
+    <div class="actions">
+      <button class="ghost" id="download" title="Download the open file">Download</button>
+      <button class="ghost" id="clear">Clear</button>
+      <button id="run"><i class="tri"></i>Start</button>
     </div>
   </header>
-  <div class="bar"><i id="fill"></i></div>
-  <textarea id="note" spellcheck="false" placeholder="Press Start. The notes write themselves, one word every 5 seconds, even when this window is minimised."></textarea>
-  <footer>
-    <span id="status">Saved on this computer as it types.</span>
-    <span>
-      <a href="https://github.com/varsansri/all-project-notes#first-time-on-a-pc" target="_blank" rel="noopener">Keep-awake setup</a>
-      &nbsp;
-      <button class="small" id="save">Download .txt</button>
-      <button class="small" id="clear">Clear</button>
-    </span>
+
+  <div class="body">
+    <nav class="activity" aria-hidden="true">
+      <div class="on"><svg viewBox="0 0 24 24"><path d="M14 3H7a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z"/><path d="M14 3v4h4"/><path d="M3 7v13a1 1 0 0 0 1 1h10"/></svg></div>
+      <div><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l6 6"/></svg></div>
+      <div style="position:relative"><svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 5-12 3-12 7"/></svg><span class="badge">3</span></div>
+      <div><svg viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></svg></div>
+      <div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/></svg></div>
+    </nav>
+
+    <aside class="explorer">
+      <div class="explorer-head">EXPLORER</div>
+      <div id="tree"></div>
+    </aside>
+
+    <main class="workspace">
+      <div id="tabs"></div>
+      <div id="crumbs"></div>
+      <div class="editor-row">
+        <div id="pane">
+          <div class="lines">
+            <div id="gutter"></div>
+            <div class="code-wrap"><div id="line-hl"></div><pre id="code"></pre></div>
+          </div>
+          <ul id="suggest" hidden></ul>
+        </div>
+        <div id="mini" aria-hidden="true"><pre id="mini-code"></pre><div id="mini-view"></div></div>
+      </div>
+      <section class="terminal">
+        <div class="terminal-tabs"><span>PROBLEMS<span class="count">0</span></span><span class="hide-sm">OUTPUT</span><span class="hide-sm">DEBUG CONSOLE</span><span class="on">TERMINAL</span><span class="hide-sm">PORTS</span></div>
+        <pre id="term"></pre>
+      </section>
+    </main>
+  </div>
+
+  <footer class="statusbar">
+    <span class="remote">&gt;&lt;</span>
+    <span>main*</span>
+    <span class="hide-sm">0 &#x2297; 0 &#x26a0;</span>
+    <span id="status-state">ready</span>
+    <span class="grow"></span>
+    <span id="status-words"></span>
+    <span id="status-left"></span>
+    <span id="status-pos" class="hide-sm"></span>
+    <span class="hide-sm">Spaces: 2</span>
+    <span class="hide-sm">UTF-8</span>
+    <span id="status-lang" class="hide-sm"></span>
+    <span class="hide-sm">Prettier &#x2713;</span>
+    <i id="progress"></i>
   </footer>
-</div>
-<script>
-  const GOAL = 2000;
-  const SPW = Number(new URLSearchParams(location.search).get('spw')) || 5;  // seconds per word
-  const TEXT_KEY = 'all-project-notes-text', STATE_KEY = 'all-project-notes-state';
 
-  const $ = id => document.getElementById(id);
-  const note = $('note'), go = $('go'), status = $('status');
-
-  const store = {
-    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
-  };
-
-  let state = { running: false, startedAt: 0, typed: 0 };
-  try { Object.assign(state, JSON.parse(store.get(STATE_KEY)) || {}); } catch (e) {}
-  note.value = store.get(TEXT_KEY) || '';
-
-  let tokens = null;      // [{ w, para }]
-  let queue = [];         // keystrokes still to type for the current word: { k, wait }
-  let nextKeyAt = 0;
-  let wakeLock = null;
-
-  function save() {
-    state.savedAt = Date.now();
-    store.set(TEXT_KEY, note.value);
-    store.set(STATE_KEY, JSON.stringify(state));
-  }
-
-  function render() {
-    $('count').textContent = state.typed;
-    $('fill').style.width = Math.min(100, state.typed / GOAL * 100) + '%';
-    const left = Math.max(0, GOAL - state.typed) * SPW;
-    const h = Math.floor(left / 3600), m = Math.round(left % 3600 / 60);
-    $('eta').innerHTML = state.typed >= GOAL ? '<span class="done">done</span>'
-                                             : (h ? h + ' h ' : '') + m + ' min left';
-    go.textContent = state.running ? 'Stop' : state.typed >= GOAL ? 'Start over' : state.typed ? 'Resume' : 'Start';
-    go.classList.toggle('on', state.running);
-    note.readOnly = state.running;
-  }
-
-  // --- the words -----------------------------------------------------------
-  fetch('words.txt').then(r => r.text()).then(raw => {
-    const paras = raw.split(/\r?\n\s*\r?\n/).map(p => p.trim()).filter(Boolean);
-    const list = [];
-    while (list.length < GOAL) {
-      for (const p of paras) {
-        p.split(/\s+/).forEach((w, i) => { if (list.length < GOAL) list.push({ w, para: i === 0 && list.length > 0 }); });
-        if (list.length >= GOAL) break;
-      }
-    }
-    tokens = list;
-    // Reopened mid-run (a reload, or Chrome put the tab to sleep): keep the
-    // clock and catch up. After a long gap, carry on from where it stopped.
-    if (state.running) {
-      if (Date.now() - (state.savedAt || 0) > 30 * 60 * 1000) resume();
-      else { render(); holdScreen(); status.textContent = 'Typing. You can switch tabs or minimise this window; it keeps going.'; }
-    }
-  }).catch(() => { status.textContent = 'Could not load the text. Reload the page.'; });
-
-  function separator(i) {
-    if (i === 0) return note.value && !/\s$/.test(note.value) ? '\n\n' : '';
-    return tokens[i].para ? '\n\n' : ' ';
-  }
-
-  const rand = (a, b) => a + Math.random() * (b - a);
-  const letters = 'abcdefghijklmnopqrstuvwxyz';
-
-  // Turn one word into human-paced keystrokes, with the odd slip corrected.
-  function queueWord(i) {
-    const word = tokens[i].w;
-    for (const ch of separator(i)) queue.push({ k: ch, wait: ch === '\n' ? rand(150, 400) : rand(60, 210) });
-    const slip = word.length > 3 && Math.random() < 0.04 ? 1 + Math.floor(Math.random() * (word.length - 1)) : -1;
-    [...word].forEach((ch, c) => {
-      if (c === slip) {
-        queue.push({ k: letters[Math.floor(Math.random() * 26)], wait: rand(200, 450) });
-        queue.push({ k: '\b', wait: rand(90, 200) });
-      }
-      queue.push({ k: ch, wait: rand(60, 210) });
-    });
-  }
-
-  function press(key) {
-    note.value = key.k === '\b' ? note.value.slice(0, -1) : note.value + key.k;
-    nextKeyAt = Date.now() + key.wait;
-  }
-
-  function wordDone() {
-    state.typed++;
-    save();
-    render();
-    note.scrollTop = note.scrollHeight;
-    if (state.typed >= GOAL) finish();
-  }
-
-  // Runs ~20 times a second from a worker clock, which keeps ticking while the
-  // tab is hidden or the window is minimised. Words are due by the wall clock,
-  // so if the browser ever pauses the page, it catches up to the right count.
-  function tick() {
-    if (!state.running || !tokens) return;
-    const now = Date.now();
-    if (queue.length) {
-      if (document.hidden) { while (queue.length) press(queue.shift()); }
-      else if (now >= nextKeyAt) press(queue.shift());
-      if (!queue.length) wordDone();
-      return;
-    }
-    const due = Math.min(GOAL, Math.floor((now - state.startedAt) / (SPW * 1000)) + 1);
-    if (state.typed >= due) return;
-    if (due - state.typed > 1) {
-      while (state.typed < due - 1) { note.value += separator(state.typed) + tokens[state.typed].w; state.typed++; }
-      save(); render();
-    }
-    queueWord(state.typed);
-    nextKeyAt = now;
-  }
-
-  const clock = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' })));
-  clock.onmessage = tick;
-
-  // --- start / stop ----------------------------------------------------------
-  // allnotes:// is the small keep-awake helper installed by setup.bat.
-  function helper(cmd) {
-    const a = document.createElement('a');
-    a.href = 'allnotes://' + cmd;
-    a.click();
-  }
-
-  async function holdScreen() {
-    try { if (state.running && !document.hidden && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-  }
-  document.addEventListener('visibilitychange', holdScreen);
-
-  function resume() {
-    state.startedAt = Date.now() - state.typed * SPW * 1000;
-    state.running = true;
-    save(); render(); holdScreen();
-    status.textContent = 'Typing. You can switch tabs or minimise this window; it keeps going.';
-  }
-
-  function finish() {
-    state.running = false;
-    save(); render();
-    if (wakeLock) wakeLock.release().catch(() => {});
-    status.textContent = 'Done: 2000 words. The keep-awake helper stops by itself shortly.';
-  }
-
-  go.addEventListener('click', () => {
-    if (!tokens) return;
-    if (state.running) {
-      if (queue.length) { while (queue.length) press(queue.shift()); wordDone(); }
-      state.running = false;
-      save(); render();
-      if (wakeLock) wakeLock.release().catch(() => {});
-      helper('stop');
-      status.textContent = 'Stopped. Press Resume to carry on.';
-      return;
-    }
-    if (state.typed >= GOAL) { state.typed = 0; note.value = ''; }
-    resume();
-    helper('start/' + Math.ceil((GOAL - state.typed) * SPW + 60));
-  });
-
-  // --- extras ----------------------------------------------------------------
-  note.addEventListener('input', save);
-
-  $('save').addEventListener('click', () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([note.value], { type: 'text/plain' }));
-    a.download = 'all-project-notes.txt';
-    a.click();
-  });
-
-  // Clear needs two clicks and no pop-up.
-  const clear = $('clear');
-  let armed = null;
-  clear.addEventListener('click', () => {
-    if (armed) {
-      clearTimeout(armed); armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear';
-      if (state.running) helper('stop');
-      queue = []; state.typed = 0; state.running = false; note.value = '';
-      save(); render(); status.textContent = 'Cleared.';
-    } else {
-      clear.classList.add('armed'); clear.textContent = 'Click again to clear';
-      armed = setTimeout(() => { armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear'; }, 3000);
-    }
-  });
-
-  render();
-</script>
+<script src="app.js"></script>
 </body>
 </html>

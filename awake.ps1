@@ -1,10 +1,10 @@
-# Keep-awake helper for All Project Notes. The page's Start button opens
-# allnotes://start/<seconds>, Stop opens allnotes://stop (see setup.bat).
+# Keep-awake helper for React Compiler. The page's Start button opens
+# reactcompiler://start/<seconds>, Stop opens reactcompiler://stop (see setup.bat).
 # While running it presses a real key (F15, which no app uses) every 5 seconds
 # and tells Windows not to sleep or turn the screen off.
-param([string]$Uri = 'allnotes://start/10800')
+param([string]$Uri = 'reactcompiler://start/10800')
 
-$dir = Join-Path $env:LOCALAPPDATA 'AllProjectNotes'
+$dir = Join-Path $env:LOCALAPPDATA 'ReactCompiler'
 New-Item -ItemType Directory -Force $dir | Out-Null
 $pidFile = Join-Path $dir 'helper.pid'
 $log = Join-Path $dir 'helper.log'
@@ -28,7 +28,7 @@ $PID | Set-Content $pidFile
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
-public static class AllNotesAwake {
+public static class ReactCompilerAwake {
     [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
     [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);
     public static void TapF15() {
@@ -39,20 +39,20 @@ public static class AllNotesAwake {
 '@
 
 $ES_CONTINUOUS = [uint32]'0x80000000'; $ES_SYSTEM = [uint32]1; $ES_DISPLAY = [uint32]2
-[void][AllNotesAwake]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM -bor $ES_DISPLAY)
+[void][ReactCompilerAwake]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM -bor $ES_DISPLAY)
 Log "start, for $seconds s (pid $PID)"
 
 $until = (Get-Date).AddSeconds($seconds)
 $beat = [Diagnostics.Stopwatch]::StartNew()
 try {
     while ((Get-Date) -lt $until) {
-        [AllNotesAwake]::TapF15()
+        [ReactCompilerAwake]::TapF15()
         $next = 5000 - ($beat.ElapsedMilliseconds % 5000)
         Start-Sleep -Milliseconds ([int]$next)
     }
     Log 'finished'
 }
 finally {
-    [void][AllNotesAwake]::SetThreadExecutionState($ES_CONTINUOUS)
+    [void][ReactCompilerAwake]::SetThreadExecutionState($ES_CONTINUOUS)
     if ((Get-Content $pidFile -ErrorAction SilentlyContinue) -eq "$PID") { Remove-Item $pidFile -ErrorAction SilentlyContinue }
 }
