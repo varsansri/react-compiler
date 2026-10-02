@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Typing Notes</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --paper: #fffdf8; --ink: #2b2a27; --muted: #8a857a;
+    --line: #e4ddcf; --accent: #3d7a5c; --bar: #e9e3d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --paper: #1d2024; --ink: #e6e3dc; --muted: #8c8f94;
+            --line: #2c3036; --accent: #6fbf95; --bar: #2a2e34; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 40px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  .stats { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--ink); }
+  .bar { height: 6px; background: var(--bar); border-radius: 3px; margin: 14px 0 18px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+  textarea { width: 100%; height: calc(100vh - 210px); min-height: 320px; resize: vertical;
+             background: var(--paper); color: var(--ink); border: 1px solid var(--line);
+             border-radius: 10px; padding: 22px 24px; outline: none;
+             font: 17px/1.75 Georgia, "Times New Roman", serif;
+             background-image: linear-gradient(var(--paper) 0, var(--paper)); }
+  textarea:focus { border-color: var(--accent); }
+  footer { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+           margin-top: 12px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+  button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.armed { border-color: #c0533f; color: #c0533f; }
+  .done { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Typing Notes</h1>
+    <div class="stats"><b id="count">0</b> / 2000 words &middot; <span id="eta"></span></div>
+  </header>
+  <div class="bar"><i id="fill"></i></div>
+  <textarea id="note" autofocus spellcheck="false" placeholder="Click here. The typer starts when this page is in front."></textarea>
+  <footer>
+    <span id="status">Saved on this computer as you type.</span>
+    <span>
+      <button id="save" tabindex="-1">Download .txt</button>
+      <button id="clear" tabindex="-1">Clear</button>
+    </span>
+  </footer>
+</div>
+<script>
+  const GOAL = 2000, SECONDS_PER_WORD = 5, KEY = 'typing-notes-text';
+  const note = document.getElementById('note');
+  const count = document.getElementById('count');
+  const fill = document.getElementById('fill');
+  const eta = document.getElementById('eta');
+  const status = document.getElementById('status');
+
+  try { note.value = localStorage.getItem(KEY) || ''; } catch (e) {}
+
+  function words(t) { const m = t.trim().match(/\S+/g); return m ? m.length : 0; }
+
+  function update() {
+    const n = words(note.value);
+    count.textContent = n;
+    fill.style.width = Math.min(100, n / GOAL * 100) + '%';
+    const left = Math.max(0, GOAL - n) * SECONDS_PER_WORD;
+    const h = Math.floor(left / 3600), m = Math.round(left % 3600 / 60);
+    eta.innerHTML = n >= GOAL ? '<span class="done">done</span>'
+                              : (h ? h + ' h ' : '') + m + ' min left';
+    try { localStorage.setItem(KEY, note.value); } catch (e) {}
+    note.scrollTop = note.scrollHeight;
+  }
+  note.addEventListener('input', update);
+
+  // Keep the cursor in the notes box, so a stray keystroke never presses a button.
+  note.addEventListener('blur', () => setTimeout(() => note.focus(), 0));
+  window.addEventListener('focus', () => note.focus());
+
+  document.getElementById('save').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([note.value], { type: 'text/plain' }));
+    a.download = 'notes.txt';
+    a.click();
+  });
+
+  // Clear needs two clicks, no pop-up (a pop-up would swallow the typing).
+  const clear = document.getElementById('clear');
+  let armed = null;
+  clear.addEventListener('click', () => {
+    if (armed) {
+      clearTimeout(armed); armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear';
+      note.value = ''; update(); status.textContent = 'Cleared.';
+    } else {
+      clear.classList.add('armed'); clear.textContent = 'Click again to clear';
+      armed = setTimeout(() => { armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear'; }, 3000);
+    }
+  });
+
+  update();
+  note.focus();
+  note.setSelectionRange(note.value.length, note.value.length);
+</script>
+</body>
+</html>
