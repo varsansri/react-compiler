@@ -1,9 +1,9 @@
-# Typing Notes
+# All Project Notes
 
 A notes page plus a small Windows typer that writes 2,000 words into it with real
 keystrokes, one word every 5 seconds, so the PC never goes to sleep.
 
-Page: https://varsansri.github.io/typing-notes/
+Page: https://varsansri.github.io/all-project-notes/
 
 ## Run it (Windows)
 1. Download this repo (Code > Download ZIP) and unzip it.

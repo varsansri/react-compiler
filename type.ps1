@@ -1,15 +1,15 @@
-# Types words.txt into the Typing Notes page with real keystrokes, one word every
+# Types words.txt into the All Project Notes page with real keystrokes, one word every
 # few seconds, so the PC never goes idle. Only types while that page is in front.
 param(
     [int]$Words = 2000,
     [double]$SecondsPerWord = 5,
-    [string]$Url = 'https://varsansri.github.io/typing-notes/',
+    [string]$Url = 'https://varsansri.github.io/all-project-notes/',
     [switch]$Local,
     [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pageTitle = 'Typing Notes'
+$pageTitle = 'All Project Notes'
 
 # Build the word list, remembering where paragraphs start. Loops the text if it is short.
 $raw = Get-Content (Join-Path $here 'words.txt') -Raw
@@ -64,7 +64,7 @@ function Key([char]$c) {
 function Wait-ForPage {
     $said = $false
     while ((([TypingWin]::ForegroundTitle())) -notlike "*$pageTitle*") {
-        if (-not $said) { Write-Host "  Paused - click the Typing Notes page to carry on." -ForegroundColor Yellow; $said = $true }
+        if (-not $said) { Write-Host "  Paused - click the All Project Notes page to carry on." -ForegroundColor Yellow; $said = $true }
         Start-Sleep -Milliseconds 500
     }
     if ($said) { Write-Host "  Back on the page, typing again." -ForegroundColor Green }
@@ -102,7 +102,7 @@ try {
         }
 
         $done = $i + 1
-        Write-Progress -Activity 'Typing notes' -Status "$done / $($tokens.Count) words" -PercentComplete ($done / $tokens.Count * 100)
+        Write-Progress -Activity 'All Project Notes' -Status "$done / $($tokens.Count) words" -PercentComplete ($done / $tokens.Count * 100)
 
         $rest = $SecondsPerWord * 1000 - $slot.ElapsedMilliseconds
         if ($rest -gt 0) { Start-Sleep -Milliseconds ([int]$rest) }
