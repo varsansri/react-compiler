@@ -7,34 +7,38 @@
 <style>
   :root {
     --bg: #f4f1ea; --paper: #fffdf8; --ink: #2b2a27; --muted: #8a857a;
-    --line: #e4ddcf; --accent: #3d7a5c; --bar: #e9e3d6;
+    --line: #e4ddcf; --accent: #3d7a5c; --accent-ink: #fff; --bar: #e9e3d6; --stop: #c0533f;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #15171a; --paper: #1d2024; --ink: #e6e3dc; --muted: #8c8f94;
-            --line: #2c3036; --accent: #6fbf95; --bar: #2a2e34; }
+            --line: #2c3036; --accent: #6fbf95; --accent-ink: #10231a; --bar: #2a2e34; --stop: #e07a66; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 40px; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  .right { display: flex; align-items: center; gap: 14px; }
   .stats { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
   .stats b { color: var(--ink); }
+  #go { font: 600 15px/1 system-ui, sans-serif; border: 0; border-radius: 8px; padding: 10px 22px;
+        background: var(--accent); color: var(--accent-ink); cursor: pointer; min-width: 96px; }
+  #go.on { background: var(--stop); color: #fff; }
   .bar { height: 6px; background: var(--bar); border-radius: 3px; margin: 14px 0 18px; overflow: hidden; }
   .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
-  textarea { width: 100%; height: calc(100vh - 210px); min-height: 320px; resize: vertical;
+  textarea { width: 100%; height: calc(100vh - 220px); min-height: 320px; resize: vertical;
              background: var(--paper); color: var(--ink); border: 1px solid var(--line);
              border-radius: 10px; padding: 22px 24px; outline: none;
-             font: 17px/1.75 Georgia, "Times New Roman", serif;
-             background-image: linear-gradient(var(--paper) 0, var(--paper)); }
+             font: 17px/1.75 Georgia, "Times New Roman", serif; }
   textarea:focus { border-color: var(--accent); }
   footer { display: flex; justify-content: space-between; align-items: center; gap: 12px;
            margin-top: 12px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
-  button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
-           border-radius: 6px; padding: 5px 12px; cursor: pointer; }
-  button:hover { border-color: var(--muted); }
-  button.armed { border-color: #c0533f; color: #c0533f; }
+  footer a { color: var(--muted); }
+  button.small { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
+                 border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button.small:hover { border-color: var(--muted); }
+  button.armed { border-color: var(--stop); color: var(--stop); }
   .done { color: var(--accent); font-weight: 600; }
 </style>
 </head>
@@ -42,70 +46,211 @@
 <div class="wrap">
   <header>
     <h1>All Project Notes</h1>
-    <div class="stats"><b id="count">0</b> / 2000 words &middot; <span id="eta"></span></div>
+    <div class="right">
+      <div class="stats"><b id="count">0</b> / 2000 words &middot; <span id="eta"></span></div>
+      <button id="go">Start</button>
+    </div>
   </header>
   <div class="bar"><i id="fill"></i></div>
-  <textarea id="note" autofocus spellcheck="false" placeholder="Click here. The typer starts when this page is in front."></textarea>
+  <textarea id="note" spellcheck="false" placeholder="Press Start. The notes write themselves, one word every 5 seconds, even when this window is minimised."></textarea>
   <footer>
-    <span id="status">Saved on this computer as you type.</span>
+    <span id="status">Saved on this computer as it types.</span>
     <span>
-      <button id="save" tabindex="-1">Download .txt</button>
-      <button id="clear" tabindex="-1">Clear</button>
+      <a href="https://github.com/varsansri/all-project-notes#first-time-on-a-pc" target="_blank" rel="noopener">Keep-awake setup</a>
+      &nbsp;
+      <button class="small" id="save">Download .txt</button>
+      <button class="small" id="clear">Clear</button>
     </span>
   </footer>
 </div>
 <script>
-  const GOAL = 2000, SECONDS_PER_WORD = 5, KEY = 'all-project-notes-text';
-  const note = document.getElementById('note');
-  const count = document.getElementById('count');
-  const fill = document.getElementById('fill');
-  const eta = document.getElementById('eta');
-  const status = document.getElementById('status');
+  const GOAL = 2000;
+  const SPW = Number(new URLSearchParams(location.search).get('spw')) || 5;  // seconds per word
+  const TEXT_KEY = 'all-project-notes-text', STATE_KEY = 'all-project-notes-state';
 
-  try { note.value = localStorage.getItem(KEY) || ''; } catch (e) {}
+  const $ = id => document.getElementById(id);
+  const note = $('note'), go = $('go'), status = $('status');
 
-  function words(t) { const m = t.trim().match(/\S+/g); return m ? m.length : 0; }
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
 
-  function update() {
-    const n = words(note.value);
-    count.textContent = n;
-    fill.style.width = Math.min(100, n / GOAL * 100) + '%';
-    const left = Math.max(0, GOAL - n) * SECONDS_PER_WORD;
-    const h = Math.floor(left / 3600), m = Math.round(left % 3600 / 60);
-    eta.innerHTML = n >= GOAL ? '<span class="done">done</span>'
-                              : (h ? h + ' h ' : '') + m + ' min left';
-    try { localStorage.setItem(KEY, note.value); } catch (e) {}
-    note.scrollTop = note.scrollHeight;
+  let state = { running: false, startedAt: 0, typed: 0 };
+  try { Object.assign(state, JSON.parse(store.get(STATE_KEY)) || {}); } catch (e) {}
+  note.value = store.get(TEXT_KEY) || '';
+
+  let tokens = null;      // [{ w, para }]
+  let queue = [];         // keystrokes still to type for the current word: { k, wait }
+  let nextKeyAt = 0;
+  let wakeLock = null;
+
+  function save() {
+    state.savedAt = Date.now();
+    store.set(TEXT_KEY, note.value);
+    store.set(STATE_KEY, JSON.stringify(state));
   }
-  note.addEventListener('input', update);
 
-  // Keep the cursor in the notes box, so a stray keystroke never presses a button.
-  note.addEventListener('blur', () => setTimeout(() => note.focus(), 0));
-  window.addEventListener('focus', () => note.focus());
+  function render() {
+    $('count').textContent = state.typed;
+    $('fill').style.width = Math.min(100, state.typed / GOAL * 100) + '%';
+    const left = Math.max(0, GOAL - state.typed) * SPW;
+    const h = Math.floor(left / 3600), m = Math.round(left % 3600 / 60);
+    $('eta').innerHTML = state.typed >= GOAL ? '<span class="done">done</span>'
+                                             : (h ? h + ' h ' : '') + m + ' min left';
+    go.textContent = state.running ? 'Stop' : state.typed >= GOAL ? 'Start over' : state.typed ? 'Resume' : 'Start';
+    go.classList.toggle('on', state.running);
+    note.readOnly = state.running;
+  }
 
-  document.getElementById('save').addEventListener('click', () => {
+  // --- the words -----------------------------------------------------------
+  fetch('words.txt').then(r => r.text()).then(raw => {
+    const paras = raw.split(/\r?\n\s*\r?\n/).map(p => p.trim()).filter(Boolean);
+    const list = [];
+    while (list.length < GOAL) {
+      for (const p of paras) {
+        p.split(/\s+/).forEach((w, i) => { if (list.length < GOAL) list.push({ w, para: i === 0 && list.length > 0 }); });
+        if (list.length >= GOAL) break;
+      }
+    }
+    tokens = list;
+    // Reopened mid-run (a reload, or Chrome put the tab to sleep): keep the
+    // clock and catch up. After a long gap, carry on from where it stopped.
+    if (state.running) {
+      if (Date.now() - (state.savedAt || 0) > 30 * 60 * 1000) resume();
+      else { render(); holdScreen(); status.textContent = 'Typing. You can switch tabs or minimise this window; it keeps going.'; }
+    }
+  }).catch(() => { status.textContent = 'Could not load the text. Reload the page.'; });
+
+  function separator(i) {
+    if (i === 0) return note.value && !/\s$/.test(note.value) ? '\n\n' : '';
+    return tokens[i].para ? '\n\n' : ' ';
+  }
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+
+  // Turn one word into human-paced keystrokes, with the odd slip corrected.
+  function queueWord(i) {
+    const word = tokens[i].w;
+    for (const ch of separator(i)) queue.push({ k: ch, wait: ch === '\n' ? rand(150, 400) : rand(60, 210) });
+    const slip = word.length > 3 && Math.random() < 0.04 ? 1 + Math.floor(Math.random() * (word.length - 1)) : -1;
+    [...word].forEach((ch, c) => {
+      if (c === slip) {
+        queue.push({ k: letters[Math.floor(Math.random() * 26)], wait: rand(200, 450) });
+        queue.push({ k: '\b', wait: rand(90, 200) });
+      }
+      queue.push({ k: ch, wait: rand(60, 210) });
+    });
+  }
+
+  function press(key) {
+    note.value = key.k === '\b' ? note.value.slice(0, -1) : note.value + key.k;
+    nextKeyAt = Date.now() + key.wait;
+  }
+
+  function wordDone() {
+    state.typed++;
+    save();
+    render();
+    note.scrollTop = note.scrollHeight;
+    if (state.typed >= GOAL) finish();
+  }
+
+  // Runs ~20 times a second from a worker clock, which keeps ticking while the
+  // tab is hidden or the window is minimised. Words are due by the wall clock,
+  // so if the browser ever pauses the page, it catches up to the right count.
+  function tick() {
+    if (!state.running || !tokens) return;
+    const now = Date.now();
+    if (queue.length) {
+      if (document.hidden) { while (queue.length) press(queue.shift()); }
+      else if (now >= nextKeyAt) press(queue.shift());
+      if (!queue.length) wordDone();
+      return;
+    }
+    const due = Math.min(GOAL, Math.floor((now - state.startedAt) / (SPW * 1000)) + 1);
+    if (state.typed >= due) return;
+    if (due - state.typed > 1) {
+      while (state.typed < due - 1) { note.value += separator(state.typed) + tokens[state.typed].w; state.typed++; }
+      save(); render();
+    }
+    queueWord(state.typed);
+    nextKeyAt = now;
+  }
+
+  const clock = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' })));
+  clock.onmessage = tick;
+
+  // --- start / stop ----------------------------------------------------------
+  // allnotes:// is the small keep-awake helper installed by setup.bat.
+  function helper(cmd) {
+    const a = document.createElement('a');
+    a.href = 'allnotes://' + cmd;
+    a.click();
+  }
+
+  async function holdScreen() {
+    try { if (state.running && !document.hidden && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', holdScreen);
+
+  function resume() {
+    state.startedAt = Date.now() - state.typed * SPW * 1000;
+    state.running = true;
+    save(); render(); holdScreen();
+    status.textContent = 'Typing. You can switch tabs or minimise this window; it keeps going.';
+  }
+
+  function finish() {
+    state.running = false;
+    save(); render();
+    if (wakeLock) wakeLock.release().catch(() => {});
+    status.textContent = 'Done: 2000 words. The keep-awake helper stops by itself shortly.';
+  }
+
+  go.addEventListener('click', () => {
+    if (!tokens) return;
+    if (state.running) {
+      if (queue.length) { while (queue.length) press(queue.shift()); wordDone(); }
+      state.running = false;
+      save(); render();
+      if (wakeLock) wakeLock.release().catch(() => {});
+      helper('stop');
+      status.textContent = 'Stopped. Press Resume to carry on.';
+      return;
+    }
+    if (state.typed >= GOAL) { state.typed = 0; note.value = ''; }
+    resume();
+    helper('start/' + Math.ceil((GOAL - state.typed) * SPW + 60));
+  });
+
+  // --- extras ----------------------------------------------------------------
+  note.addEventListener('input', save);
+
+  $('save').addEventListener('click', () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([note.value], { type: 'text/plain' }));
-    a.download = 'notes.txt';
+    a.download = 'all-project-notes.txt';
     a.click();
   });
 
-  // Clear needs two clicks, no pop-up (a pop-up would swallow the typing).
-  const clear = document.getElementById('clear');
+  // Clear needs two clicks and no pop-up.
+  const clear = $('clear');
   let armed = null;
   clear.addEventListener('click', () => {
     if (armed) {
       clearTimeout(armed); armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear';
-      note.value = ''; update(); status.textContent = 'Cleared.';
+      if (state.running) helper('stop');
+      queue = []; state.typed = 0; state.running = false; note.value = '';
+      save(); render(); status.textContent = 'Cleared.';
     } else {
       clear.classList.add('armed'); clear.textContent = 'Click again to clear';
       armed = setTimeout(() => { armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear'; }, 3000);
     }
   });
 
-  update();
-  note.focus();
-  note.setSelectionRange(note.value.length, note.value.length);
+  render();
 </script>
 </body>
 </html>
