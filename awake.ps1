@@ -1,5 +1,6 @@
 # Keep-awake helper for React Compiler. The page's Start button opens
-# reactcompiler://start/<seconds>, Stop opens reactcompiler://stop (see setup.bat).
+# reactcompiler://start/forever (or start/<seconds>), Finish opens reactcompiler://stop
+# (see setup.bat). "forever" runs until Finish is pressed.
 # While running, every 5 seconds it presses a real key (F15, which no app uses),
 # and the whole time it glides the mouse slowly from corner to corner of the
 # main screen, along curves, like a hand would. If you move the mouse yourself it
@@ -25,6 +26,7 @@ if (Test-Path $pidFile) {
 
 if ($Uri -match 'stop') { Log 'stop'; return }
 
+$forever = $Uri -match 'start/forever'
 $seconds = if ($Uri -match 'start/(\d+)') { [math]::Min([int]$Matches[1], 12 * 3600) } else { 3 * 3600 }
 $PID | Set-Content $pidFile
 
@@ -72,7 +74,7 @@ public static class ReactCompilerAwake {
 [void][ReactCompilerAwake]::SetProcessDPIAware()
 $rng = [Random]::new()
 $clock = [Diagnostics.Stopwatch]::StartNew()
-$until = (Get-Date).AddSeconds($seconds)
+$until = if ($forever) { [datetime]::MaxValue } else { (Get-Date).AddSeconds($seconds) }
 $lastTap = -5000
 $set = $null       # where the helper last put the mouse
 
@@ -126,7 +128,7 @@ function Glide($tx, $ty) {
 
 $ES_CONTINUOUS = [uint32]'0x80000000'; $ES_SYSTEM = [uint32]1; $ES_DISPLAY = [uint32]2
 [void][ReactCompilerAwake]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM -bor $ES_DISPLAY)
-Log "start, for $seconds s (pid $PID)"
+Log $(if ($forever) { "start, until Finish (pid $PID)" } else { "start, for $seconds s (pid $PID)" })
 
 $set = [ReactCompilerAwake]::Cursor()
 $corner = -1

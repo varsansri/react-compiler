@@ -3,6 +3,8 @@
 An editor in the browser, styled like VS Code, that types out its own React and
 JavaScript source (the files in `src/`, 2,336 words) one word every 5 seconds,
 letter by letter, with a small Windows helper that keeps the PC awake meanwhile.
+When the last word is typed it wipes the files and types them again, round after
+round, until you press **Finish**.
 
 Page: https://varsansri.github.io/react-compiler/
 
@@ -14,8 +16,8 @@ Page: https://varsansri.github.io/react-compiler/
 - Start also opens the keep-awake helper. It presses a real key every 5 seconds
   (F15, which no app uses, so it never types into anything), glides the mouse
   slowly from corner to corner of the main screen along curves, like a hand, and
-  tells Windows not to sleep or turn the screen off. It stops on Stop, or by
-  itself when the run ends.
+  tells Windows not to sleep or turn the screen off. It runs until you press
+  Finish.
 - If you move the mouse yourself, the glide pauses and leaves it to you; it
   carries on once the mouse has sat still for 20 seconds. It never clicks.
 
@@ -28,6 +30,7 @@ Page: https://varsansri.github.io/react-compiler/
 Without the setup the page still types, but nothing keeps the PC awake.
 
 ## Notes
-- The page has to stay open in a tab. Closing it stops the typing.
+- The page has to stay open in a tab. Closing it stops the typing, but not the
+  helper: reopen the page and press Finish to stop that too.
 - `app.js` is the code that runs the page; `src/` is the React code it types.
 - The helper logs to `%LOCALAPPDATA%\ReactCompiler\helper.log`.

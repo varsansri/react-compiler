@@ -1,5 +1,7 @@
 // React Compiler - the editor on this page. It types out the React source in
 // src/, one word every 5 seconds, even while the tab is hidden or minimised.
+// After the last word it clears the files and types them again, round after
+// round, until Finish is pressed.
 
 const FILES = [
   'src/main.jsx',
@@ -27,7 +29,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 };
 
-let state = { running: false, startedAt: 0, typed: 0 };
+let state = { running: false, startedAt: 0, typed: 0, round: 1 };
 try { Object.assign(state, JSON.parse(store.get(STATE_KEY)) || {}); } catch (e) {}
 let texts = [];
 try { texts = JSON.parse(store.get(TEXT_KEY)) || []; } catch (e) {}
@@ -160,7 +162,20 @@ function wordDone() {
   afterWord(before);
   save();
   draw();
-  if (state.typed >= GOAL) finish();
+  if (state.typed >= GOAL) nextRound();
+}
+
+// Whole source typed: say so, wipe the files and go again from the first word.
+function nextRound() {
+  log('');
+  log('✓ ' + GOAL + ' words, ' + FILES.length + ' files compiled. Build complete.', 'ok');
+  state.round = (state.round || 1) + 1;
+  state.typed = 0;
+  state.startedAt += GOAL * SPW * 1000;
+  texts = texts.map(() => '');
+  viewing = null;
+  log('[react-compiler] file change detected, rebuilding (round ' + state.round + ')', 'dim');
+  save(); draw();
 }
 
 function afterWord(before) {
@@ -282,14 +297,12 @@ function paint() {
   // title + status bar
   const done = state.typed >= GOAL;
   const run = $('run');
-  run.innerHTML = state.running ? '<i class="sq"></i>Stop' : '<i class="tri"></i>' + (done ? 'Start over' : state.typed ? 'Resume' : 'Start');
+  run.innerHTML = state.running ? '<i class="sq"></i>Finish' : '<i class="tri"></i>' + (done ? 'Start over' : state.typed ? 'Resume' : 'Start');
   run.classList.toggle('on', state.running);
   document.body.classList.toggle('running', state.running);
   $('status-state').textContent = state.running ? 'compiling' : done ? 'done' : state.typed ? 'paused' : 'ready';
-  $('status-words').textContent = state.typed + ' / ' + GOAL + ' words';
-  const left = Math.max(0, GOAL - state.typed) * SPW;
-  const h = Math.floor(left / 3600), m = Math.round(left % 3600 / 60);
-  $('status-left').textContent = done ? 'all files compiled' : (h ? h + ' h ' : '') + m + ' min left';
+  $('status-words').textContent = 'round ' + (state.round || 1) + ' · ' + state.typed + ' / ' + GOAL + ' words';
+  $('status-left').textContent = state.running ? 'runs until Finish' : done ? 'all files compiled' : 'stopped';
   $('status-pos').textContent = 'Ln ' + lines.length + ', Col ' + (lines[lines.length - 1].length + 1);
   $('status-lang').textContent = ext(open) === 'jsx' ? 'JavaScript JSX' : 'JavaScript';
   $('progress').style.width = (GOAL ? state.typed / GOAL * 100 : 0) + '%';
@@ -348,14 +361,6 @@ function resume() {
   save(); draw(); holdScreen();
 }
 
-function finish() {
-  state.running = false;
-  save(); draw();
-  if (wakeLock) wakeLock.release().catch(() => {});
-  log('');
-  log('✓ ' + GOAL + ' words, ' + FILES.length + ' files compiled. Build complete.', 'ok');
-}
-
 $('run').addEventListener('click', () => {
   if (!GOAL) return;
   if (state.running) {
@@ -364,13 +369,13 @@ $('run').addEventListener('click', () => {
     save(); draw();
     if (wakeLock) wakeLock.release().catch(() => {});
     helper('stop');
-    log('^C', 'cmd'); log('[react-compiler] stopped at word ' + state.typed, 'warn');
+    log('^C', 'cmd'); log('[react-compiler] finished at word ' + state.typed + ', round ' + (state.round || 1), 'warn');
     return;
   }
-  if (state.typed >= GOAL) { state.typed = 0; texts = texts.map(() => ''); viewing = null; boot(); }
+  if (state.typed >= GOAL) { state.typed = 0; state.round = 1; texts = texts.map(() => ''); viewing = null; boot(); }
   resume();
-  log('[react-compiler] compiling ' + FILES.length + ' files, ' + (GOAL - state.typed) + ' words to go', 'ok');
-  helper('start/' + Math.ceil((GOAL - state.typed) * SPW + 60));
+  log('[react-compiler] compiling ' + FILES.length + ' files, watching for changes', 'ok');
+  helper('start/forever');
 });
 
 // --- extras --------------------------------------------------------------------
@@ -391,7 +396,7 @@ clear.addEventListener('click', () => {
     clearTimeout(armed); armed = null; clear.classList.remove('armed'); clear.textContent = 'Clear';
     if (state.running) helper('stop');
     queue = []; typing = null; viewing = null;
-    state.typed = 0; state.running = false; texts = texts.map(() => '');
+    state.typed = 0; state.round = 1; state.running = false; texts = texts.map(() => '');
     save(); boot(); draw();
   } else {
     clear.classList.add('armed'); clear.textContent = 'Sure?';
