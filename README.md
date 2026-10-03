@@ -12,8 +12,12 @@ Page: https://varsansri.github.io/react-compiler/
 - It keeps going while you use other tabs or apps, or with the window minimised.
   Words are timed by the clock, so the count is always right when you come back.
 - Start also opens the keep-awake helper. It presses a real key every 5 seconds
-  (F15, which no app uses, so it never types into anything) and tells Windows not
-  to sleep or turn the screen off. It stops on Stop, or by itself when the run ends.
+  (F15, which no app uses, so it never types into anything), glides the mouse
+  slowly from corner to corner of the main screen along curves, like a hand, and
+  tells Windows not to sleep or turn the screen off. It stops on Stop, or by
+  itself when the run ends.
+- If you move the mouse yourself, the glide pauses and leaves it to you; it
+  carries on once the mouse has sat still for 20 seconds. It never clicks.
 
 ## First time on a PC
 1. Download this repo (Code > Download ZIP), unzip it somewhere it can stay.
